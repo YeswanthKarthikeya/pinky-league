@@ -32,79 +32,33 @@ const getTeamLogo = (team) => {
   return null
 }
 
+const getWinnerFromStatus = (status) => {
+  if (!status || !status.includes('won')) return null
+  if (status.includes('Lucknow')) return 'Lucknow Super Giants'
+  if (status.includes('Rajasthan')) return 'Rajasthan Royals'
+  if (status.includes('Mumbai')) return 'Mumbai Indians'
+  if (status.includes('Chennai')) return 'Chennai Super Kings'
+  if (status.includes('Kolkata')) return 'Kolkata Knight Riders'
+  if (status.includes('Delhi')) return 'Delhi Capitals'
+  if (status.includes('Punjab')) return 'Punjab Kings'
+  if (status.includes('Sunrisers')) return 'Sunrisers Hyderabad'
+  if (status.includes('Gujarat')) return 'Gujarat Titans'
+  if (status.includes('Royal')) return 'Royal Challengers Bengaluru'
+  return null
+}
+
 export default function Home({ user }) {
-  const [todayMatch, setTodayMatch] = useState(null)
+  const [todayMatches, setTodayMatches] = useState([])
   const [predictions, setPredictions] = useState([])
-  const [myPrediction, setMyPrediction] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [voting, setVoting] = useState(false)
-  const [matchLocked, setMatchLocked] = useState(false)
-  const [matchLive, setMatchLive] = useState(false)
-  const [result, setResult] = useState(null)
-  const [autoFetching, setAutoFetching] = useState(false)
 
   const playerName = getPlayerName(user.email)
   const today = new Date().toISOString().split('T')[0]
 
   useEffect(() => {
-    fetchTodayMatch()
-  }, [])
-
-  useEffect(() => {
-    if (!todayMatch || result) return
-    const now = new Date()
-    const [hours, minutes] = todayMatch.match_time.split(':')
-    const matchStart = new Date()
-    matchStart.setHours(parseInt(hours), parseInt(minutes), 0)
-    const matchEnd = new Date(matchStart.getTime() + 4 * 60 * 60 * 1000)
-    if (now >= matchStart) setMatchLive(true)
-    if (now >= matchEnd) {
-      autoFetchResult(todayMatch)
-    } else if (now >= matchStart) {
-      const delay = matchEnd - now
-      const timer = setTimeout(() => autoFetchResult(todayMatch), delay)
-      return () => clearTimeout(timer)
-    }
-  }, [todayMatch, result])
-
-useEffect(() => {
+    fetchTodayMatches()
     checkPreviousMatchResult()
   }, [])
-
-  const checkPreviousMatchResult = async () => {
-    const yesterday = new Date()
-    yesterday.setDate(yesterday.getDate() - 1)
-    const yesterdayStr = yesterday.toISOString().split('T')[0]
-    const { data: prevMatch } = await supabase
-      .from('matches')
-      .select('*')
-      .eq('match_date', yesterdayStr)
-      .single()
-    if (prevMatch && !prevMatch.winner && prevMatch.api_match_id) {
-      try {
-        const data = await fetchFromCricbuzz(`mcenter/v1/${prevMatch.api_match_id}/hscard`)
-        if (data?.ismatchcomplete && data?.status) {
-          const status = data.status
-          const winner = status.includes('won') ?
-            (status.includes('Lucknow') ? 'Lucknow Super Giants' :
-            status.includes('Rajasthan') ? 'Rajasthan Royals' :
-            status.includes('Mumbai') ? 'Mumbai Indians' :
-            status.includes('Chennai') ? 'Chennai Super Kings' :
-            status.includes('Kolkata') ? 'Kolkata Knight Riders' :
-            status.includes('Delhi') ? 'Delhi Capitals' :
-            status.includes('Punjab') ? 'Punjab Kings' :
-            status.includes('Sunrisers') ? 'Sunrisers Hyderabad' :
-            status.includes('Gujarat') ? 'Gujarat Titans' :
-            status.includes('Royal') ? 'Royal Challengers Bengaluru' : null) : null
-          if (winner) {
-            await saveResult(prevMatch, winner)
-          }
-        }
-      } catch (err) {
-        console.error('Previous match result fetch failed:', err)
-      }
-    }
-  }
 
   const fetchFromCricbuzz = async (endpoint) => {
     const res = await fetch(`https://cricbuzz-cricket.p.rapidapi.com/${endpoint}`, {
@@ -116,115 +70,114 @@ useEffect(() => {
     return await res.json()
   }
 
-  const findIPLMatch = (data) => {
-    if (!data?.typeMatches) return null
+  const findIPLMatches = (data) => {
+    const matches = []
+    if (!data?.typeMatches) return matches
     for (const typeMatch of data.typeMatches) {
       for (const seriesMatch of typeMatch.seriesMatches || []) {
         for (const match of seriesMatch.seriesAdWrapper?.matches || []) {
           const matchInfo = match.matchInfo
           const isIPL = matchInfo?.seriesName?.toLowerCase().includes('indian premier league')
-          if (isIPL) return matchInfo
+          if (isIPL) matches.push(matchInfo)
         }
       }
     }
-    return null
+    return matches
   }
 
-  const fetchTodayMatch = async () => {
+  const fetchTodayMatches = async () => {
     setLoading(true)
     try {
       const { data: existing } = await supabase
-        .from('matches').select('*').eq('match_date', today).single()
-      if (existing) {
-        setTodayMatch(existing)
-        checkLock(existing.match_time)
-        if (existing.winner) setResult(existing.winner)
-        await fetchPredictions(existing.id)
+        .from('matches').select('*').eq('match_date', today).order('match_time')
+      if (existing && existing.length > 0) {
+        setTodayMatches(existing)
+        await fetchAllPredictions(existing.map(m => m.id))
         setLoading(false)
         return
       }
 
-      let foundMatch = null
-
+      let foundMatches = []
       const liveData = await fetchFromCricbuzz('matches/v1/live')
-      foundMatch = findIPLMatch(liveData)
+      foundMatches = [...foundMatches, ...findIPLMatches(liveData)]
+      const upcomingData = await fetchFromCricbuzz('matches/v1/upcoming')
+      foundMatches = [...foundMatches, ...findIPLMatches(upcomingData)]
 
-      if (!foundMatch) {
-        const upcomingData = await fetchFromCricbuzz('matches/v1/upcoming')
-        foundMatch = findIPLMatch(upcomingData)
-      }
+      const todayMatches = foundMatches.filter(m => {
+        const matchDateStr = new Date(parseInt(m.startDate)).toISOString().split('T')[0]
+        return matchDateStr === today
+      })
 
-      if (!foundMatch) {
-        const recentData = await fetchFromCricbuzz('matches/v1/recent')
-        foundMatch = findIPLMatch(recentData)
-      }
+      const uniqueMatches = todayMatches.filter((m, i, arr) =>
+        arr.findIndex(x => x.matchId === m.matchId) === i
+      )
 
-      if (foundMatch) {
-        const matchTime = new Date(parseInt(foundMatch.startDate))
+      const savedMatches = []
+      for (let i = 0; i < uniqueMatches.length; i++) {
+        const m = uniqueMatches[i]
+        const { data: existingMatch } = await supabase
+          .from('matches').select('*')
+          .eq('api_match_id', m.matchId.toString()).single()
+
+        if (existingMatch) {
+          savedMatches.push(existingMatch)
+          continue
+        }
+
+        const matchTime = new Date(parseInt(m.startDate))
         const istOffset = 5.5 * 60 * 60 * 1000
         const istTime = new Date(matchTime.getTime() + istOffset)
         const hours = istTime.getUTCHours().toString().padStart(2, '0')
         const mins = istTime.getUTCMinutes().toString().padStart(2, '0')
-        const matchDateStr = new Date(parseInt(foundMatch.startDate)).toISOString().split('T')[0]
+
         const newMatch = {
-          match_date: matchDateStr,
-          team1: foundMatch.team1?.teamName || 'Team 1',
-          team2: foundMatch.team2?.teamName || 'Team 2',
+          match_date: today,
+          team1: m.team1?.teamName || 'Team 1',
+          team2: m.team2?.teamName || 'Team 2',
           match_time: `${hours}:${mins}`,
-          api_match_id: foundMatch.matchId?.toString()
+          api_match_id: m.matchId.toString(),
+          venue: m.venueInfo?.ground || '',
+          city: m.venueInfo?.city || '',
+          match_number: i + 1
         }
-        const { data: existing2 } = await supabase
-  .from('matches').select('*').eq('match_date', matchDateStr).single()
-if (existing2) {
-  setTodayMatch(existing2)
-  checkLock(existing2.match_time)
-  await fetchPredictions(existing2.id)
-  setLoading(false)
-  return
-}
-const { data: saved } = await supabase.from('matches').insert(newMatch).select().single()
-        if (saved) {
-          setTodayMatch(saved)
-          checkLock(saved.match_time)
-          await fetchPredictions(saved.id)
-        }
+        const { data: saved } = await supabase.from('matches').insert(newMatch).select().single()
+        if (saved) savedMatches.push(saved)
       }
+
+      setTodayMatches(savedMatches)
+      await fetchAllPredictions(savedMatches.map(m => m.id))
     } catch (err) {
-      console.error('Error fetching match:', err)
+      console.error('Error fetching matches:', err)
     }
     setLoading(false)
   }
 
-  const autoFetchResult = async (match) => {
-    if (!match?.api_match_id) return
-    setAutoFetching(true)
-    try {
-      const data = await fetchFromCricbuzz(`mcenter/v1/${match.api_match_id}/hscard`)
-      if (data?.ismatchcomplete && data?.status) {
-        const status = data.status
-        const winner = status.includes('won') ?
-          (status.includes('Lucknow') ? 'Lucknow Super Giants' :
-          status.includes('Rajasthan') ? 'Rajasthan Royals' :
-          status.includes('Mumbai') ? 'Mumbai Indians' :
-          status.includes('Chennai') ? 'Chennai Super Kings' :
-          status.includes('Kolkata') ? 'Kolkata Knight Riders' :
-          status.includes('Delhi') ? 'Delhi Capitals' :
-          status.includes('Punjab') ? 'Punjab Kings' :
-          status.includes('Sunrisers') ? 'Sunrisers Hyderabad' :
-          status.includes('Gujarat') ? 'Gujarat Titans' :
-          status.includes('Royal') ? 'Royal Challengers Bengaluru' : null) : null
-        if (winner) {
-          await saveResult(match, winner)
-        } else {
-          setTimeout(() => autoFetchResult(match), 10 * 60 * 1000)
+  const fetchAllPredictions = async (matchIds) => {
+    const { data } = await supabase
+      .from('predictions').select('*')
+      .in('match_id', matchIds)
+    if (data) setPredictions(data)
+  }
+
+  const checkPreviousMatchResult = async () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    const { data: prevMatches } = await supabase
+      .from('matches').select('*').eq('match_date', yesterdayStr)
+    if (!prevMatches) return
+    for (const prevMatch of prevMatches) {
+      if (prevMatch.winner || !prevMatch.api_match_id) continue
+      try {
+        const data = await fetchFromCricbuzz(`mcenter/v1/${prevMatch.api_match_id}/hscard`)
+        if (data?.ismatchcomplete) {
+          const winner = getWinnerFromStatus(data.status)
+          if (winner) await saveResult(prevMatch, winner)
         }
-      } else {
-        setTimeout(() => autoFetchResult(match), 10 * 60 * 1000)
+      } catch (err) {
+        console.error('Previous match result fetch failed:', err)
       }
-    } catch (err) {
-      setTimeout(() => autoFetchResult(match), 10 * 60 * 1000)
     }
-    setAutoFetching(false)
   }
 
   const saveResult = async (match, winner) => {
@@ -237,51 +190,46 @@ const { data: saved } = await supabase.from('matches').insert(newMatch).select()
           .eq('id', pred.id)
       }
     }
-    setResult(winner)
-    setMatchLive(false)
-    fetchPredictions(match.id)
   }
 
-  const checkLock = (matchTime) => {
+  const isMatchLocked = (matchTime) => {
     const now = new Date()
     const [hours, minutes] = matchTime.split(':')
     const matchDate = new Date()
     matchDate.setHours(parseInt(hours), parseInt(minutes), 0)
-    const matchEnd = new Date(matchDate.getTime() + 4 * 60 * 60 * 1000)
-    setMatchLocked(now >= matchDate)
-    setMatchLive(now >= matchDate && now < matchEnd)
+    return now >= matchDate
   }
 
-  const fetchPredictions = async (matchId) => {
-    const { data } = await supabase.from('predictions').select('*').eq('match_id', matchId)
-    if (data) {
-      setPredictions(data)
-      const mine = data.find(p => p.player_email === user.email)
-      if (mine) setMyPrediction(mine.predicted_team)
-    }
+  const isMatchLive = (matchTime) => {
+    const now = new Date()
+    const [hours, minutes] = matchTime.split(':')
+    const matchStart = new Date()
+    matchStart.setHours(parseInt(hours), parseInt(minutes), 0)
+    const matchEnd = new Date(matchStart.getTime() + 4 * 60 * 60 * 1000)
+    return now >= matchStart && now < matchEnd
   }
 
-  const handleVote = async (team) => {
-    if (matchLocked || voting) return
-    setVoting(true)
-    try {
-      const existing = predictions.find(p => p.player_email === user.email)
-      if (existing) {
-        await supabase.from('predictions').update({ predicted_team: team }).eq('id', existing.id)
-      } else {
-        await supabase.from('predictions').insert({
-          match_id: todayMatch.id,
-          player_email: user.email,
-          player_name: playerName,
-          predicted_team: team
-        })
-      }
-      setMyPrediction(team)
-      await fetchPredictions(todayMatch.id)
-    } catch (err) {
-      console.error('Vote error:', err)
+  const handleVote = async (matchId, team) => {
+    const existing = predictions.find(p => p.match_id === matchId && p.player_email === user.email)
+    if (existing) {
+      await supabase.from('predictions').update({ predicted_team: team }).eq('id', existing.id)
+    } else {
+      await supabase.from('predictions').insert({
+        match_id: matchId,
+        player_email: user.email,
+        player_name: playerName,
+        predicted_team: team
+      })
     }
-    setVoting(false)
+    await fetchAllPredictions(todayMatches.map(m => m.id))
+  }
+
+  const getMyPrediction = (matchId) => {
+    return predictions.find(p => p.match_id === matchId && p.player_email === user.email)?.predicted_team
+  }
+
+  const getMatchPredictions = (matchId) => {
+    return predictions.filter(p => p.match_id === matchId)
   }
 
   if (loading) return (
@@ -293,7 +241,7 @@ const { data: saved } = await supabase.from('matches').insert(newMatch).select()
     </div>
   )
 
-  if (!todayMatch) return (
+  if (todayMatches.length === 0) return (
     <div style={{ padding: '2rem', textAlign: 'center', marginTop: '3rem' }}>
       <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>😴</div>
       <p style={{ color: '#fff', fontSize: '1.1rem', fontWeight: '600' }}>No IPL match today!</p>
@@ -305,156 +253,188 @@ const { data: saved } = await supabase.from('matches').insert(newMatch).select()
     <div style={{ padding: '1.5rem', paddingBottom: '6rem' }}>
       <div style={{ marginBottom: '1.5rem' }}>
         <p style={{ color: '#8888AA', fontSize: '0.85rem' }}>Hey {playerName}! 👋</p>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: '700' }}>Today's Match 🏏</h1>
+        <h1 style={{ fontSize: '1.4rem', fontWeight: '700' }}>
+          Today's {todayMatches.length > 1 ? 'Matches 🏏🏏' : 'Match 🏏'}
+        </h1>
       </div>
 
-      <div style={{
-        background: 'linear-gradient(135deg, #13131F, #1A1A2E)',
-        borderRadius: '24px', padding: '1.5rem',
-        border: matchLive ? '1px solid rgba(255, 59, 59, 0.4)' : '1px solid rgba(233,30,140,0.2)',
-        marginBottom: '1.5rem', textAlign: 'center'
-      }}>
+      {todayMatches.map((match, index) => {
+        const locked = isMatchLocked(match.match_time)
+        const live = isMatchLive(match.match_time)
+        const myPrediction = getMyPrediction(match.id)
+        const matchPreds = getMatchPredictions(match.id)
 
-        {matchLive && !result && (
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            background: '#FF3B3B22', borderRadius: '20px',
-            padding: '0.3rem 0.8rem', marginBottom: '1rem'
-          }}>
+        return (
+          <div key={match.id} style={{ marginBottom: '1.5rem' }}>
+            {todayMatches.length > 1 && (
+              <p style={{ fontSize: '0.8rem', color: '#E91E8C', fontWeight: '700', marginBottom: '0.5rem' }}>
+                {index === 0 ? '☀️ Match 1' : '🌙 Match 2'}
+              </p>
+            )}
+
             <div style={{
-              width: '8px', height: '8px', borderRadius: '50%',
-              background: '#FF3B3B', animation: 'pulse 1.5s infinite'
-            }} />
-            <span style={{ color: '#FF3B3B', fontSize: '0.75rem', fontWeight: '700' }}>LIVE</span>
-          </div>
-        )}
-
-        {!matchLive && !result && (
-          <p style={{ fontSize: '0.75rem', color: '#8888AA', marginBottom: '1rem' }}>
-            {matchLocked ? '🔒 Voting Closed' : `⏰ Voting open till ${todayMatch.match_time}`}
-          </p>
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-          <div style={{ flex: 1, textAlign: 'center' }}>
-            <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'center' }}>
-              {getTeamLogo(todayMatch.team1)
-                ? <img src={getTeamLogo(todayMatch.team1)} alt={todayMatch.team1}
-                    style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
-                : <span style={{ fontSize: '2.5rem' }}>🏏</span>}
-            </div>
-            <p style={{ fontSize: '0.85rem', fontWeight: '600' }}>{todayMatch.team1}</p>
-          </div>
-          <div style={{ padding: '0.5rem 1rem', background: '#0A0A0F', borderRadius: '12px' }}>
-            <p style={{ fontSize: '1rem', fontWeight: '700', color: '#E91E8C' }}>VS</p>
-          </div>
-          <div style={{ flex: 1, textAlign: 'center' }}>
-            <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'center' }}>
-              {getTeamLogo(todayMatch.team2)
-                ? <img src={getTeamLogo(todayMatch.team2)} alt={todayMatch.team2}
-                    style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
-                : <span style={{ fontSize: '2.5rem' }}>🏏</span>}
-            </div>
-            <p style={{ fontSize: '0.85rem', fontWeight: '600' }}>{todayMatch.team2}</p>
-          </div>
-        </div>
-
-        {matchLive && !result && (
-          <div style={{ background: '#FF3B3B22', borderRadius: '12px', padding: '0.7rem', marginBottom: '1rem' }}>
-            <p style={{ color: '#FF3B3B', fontSize: '0.85rem', fontWeight: '600' }}>
-              🏏 Match is in progress! Results will update automatically.
-            </p>
-          </div>
-        )}
-
-        {autoFetching && (
-          <div style={{ background: '#FFD60022', borderRadius: '12px', padding: '0.7rem', marginBottom: '1rem' }}>
-            <p style={{ color: '#FFD600', fontSize: '0.8rem' }}>⏳ Fetching match result automatically...</p>
-          </div>
-        )}
-
-        {result && (
-          <div style={{ background: '#00E67622', borderRadius: '14px', padding: '0.8rem', marginBottom: '1rem' }}>
-            <p style={{ color: '#00E676', fontWeight: '700', fontSize: '0.95rem' }}>🏆 Winner: {result}</p>
-          </div>
-        )}
-
-        {!matchLocked && (
-          <div>
-            <p style={{ fontSize: '0.8rem', color: '#8888AA', marginBottom: '0.8rem' }}>
-              {myPrediction ? `Your pick: ${myPrediction} ✅` : 'Who will win?'}
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              {[todayMatch.team1, todayMatch.team2].map(team => (
-                <button
-                  key={team}
-                  onClick={() => handleVote(team)}
-                  disabled={voting}
-                  style={{
-                    flex: 1, padding: '0.9rem 0.5rem', borderRadius: '14px',
-                    background: myPrediction === team
-                      ? 'linear-gradient(90deg, #E91E8C, #FF6B35)'
-                      : '#0A0A0F',
-                    color: '#fff', fontSize: '0.8rem', fontWeight: '600',
-                    border: myPrediction === team ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                  }}
-                >
-                  {getTeamLogo(team)
-                    ? <img src={getTeamLogo(team)} alt={team}
-                        style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
-                    : '🏏'}
-                  <span>{team.split(' ').slice(-1)[0]}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div style={{
-        background: '#13131F', borderRadius: '24px', padding: '1.5rem',
-        border: '1px solid rgba(255,255,255,0.06)'
-      }}>
-        <h2 style={{ fontSize: '1rem', marginBottom: '1.2rem', fontWeight: '600' }}>🗳️ Everyone's Picks</h2>
-        {predictions.length === 0 ? (
-          <p style={{ color: '#555577', fontSize: '0.85rem' }}>No predictions yet...</p>
-        ) : (
-          predictions.map(p => (
-            <div key={p.id} style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '0.8rem 1rem', background: '#0A0A0F',
-              borderRadius: '12px', marginBottom: '0.5rem'
+              background: 'linear-gradient(135deg, #13131F, #1A1A2E)',
+              borderRadius: '24px', padding: '1.5rem',
+              border: live ? '1px solid rgba(255,59,59,0.4)' : '1px solid rgba(233,30,140,0.2)',
+              textAlign: 'center'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+              {live && !match.winner && (
                 <div style={{
-                  width: '32px', height: '32px', borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #E91E8C, #FF6B35)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '0.8rem', fontWeight: '700'
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  background: '#FF3B3B22', borderRadius: '20px',
+                  padding: '0.3rem 0.8rem', marginBottom: '0.5rem'
                 }}>
-                  {p.player_name[0]}
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#FF3B3B' }} />
+                  <span style={{ color: '#FF3B3B', fontSize: '0.75rem', fontWeight: '700' }}>LIVE</span>
                 </div>
-                <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.player_name}</span>
+              )}
+
+              {!live && !match.winner && (
+                <p style={{ fontSize: '0.75rem', color: '#8888AA', marginBottom: '0.3rem' }}>
+                  {locked ? '🔒 Voting Closed' : `⏰ Voting open till ${match.match_time}`}
+                </p>
+              )}
+
+              {match.venue && (
+                <p style={{ fontSize: '0.7rem', color: '#555577', marginBottom: '1rem' }}>
+                  📍 {match.venue}, {match.city}
+                </p>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'center' }}>
+                    {getTeamLogo(match.team1)
+                      ? <img src={getTeamLogo(match.team1)} alt={match.team1}
+                          style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
+                      : <span style={{ fontSize: '2.5rem' }}>🏏</span>}
+                  </div>
+                  <p style={{ fontSize: '0.85rem', fontWeight: '600' }}>{match.team1}</p>
+                </div>
+                <div style={{ padding: '0.5rem 1rem', background: '#0A0A0F', borderRadius: '12px' }}>
+                  <p style={{ fontSize: '1rem', fontWeight: '700', color: '#E91E8C' }}>VS</p>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'center' }}>
+                    {getTeamLogo(match.team2)
+                      ? <img src={getTeamLogo(match.team2)} alt={match.team2}
+                          style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
+                      : <span style={{ fontSize: '2.5rem' }}>🏏</span>}
+                  </div>
+                  <p style={{ fontSize: '0.85rem', fontWeight: '600' }}>{match.team2}</p>
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {getTeamLogo(p.predicted_team)
-                  ? <img src={getTeamLogo(p.predicted_team)} alt={p.predicted_team}
-                      style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
-                  : '🏏'}
-                <span style={{ fontSize: '0.8rem', color: '#8888AA' }}>
-                  {p.predicted_team.split(' ').slice(-1)[0]}
-                </span>
-                {result && (
-                  <span style={{ fontSize: '1rem' }}>
-                    {p.predicted_team === result ? '✅' : '❌'}
-                  </span>
-                )}
-              </div>
+
+              {live && !match.winner && (
+                <div style={{ background: '#FF3B3B22', borderRadius: '12px', padding: '0.7rem', marginBottom: '1rem' }}>
+                  <p style={{ color: '#FF3B3B', fontSize: '0.85rem', fontWeight: '600' }}>
+                    🏏 Match in progress! Results update automatically.
+                  </p>
+                </div>
+              )}
+
+              {match.winner && (
+                <div style={{ background: '#00E67622', borderRadius: '14px', padding: '0.8rem', marginBottom: '1rem' }}>
+                  <p style={{ color: '#00E676', fontWeight: '700', fontSize: '0.95rem' }}>🏆 Winner: {match.winner}</p>
+                </div>
+              )}
+
+              {!locked && (
+                <div>
+                  <p style={{ fontSize: '0.8rem', color: '#8888AA', marginBottom: '0.8rem' }}>
+                    {myPrediction ? `Your pick: ${myPrediction} ✅` : 'Who will win?'}
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    {[match.team1, match.team2].map(team => (
+                      <button
+                        key={team}
+                        onClick={() => handleVote(match.id, team)}
+                        style={{
+                          flex: 1, padding: '0.9rem 0.5rem', borderRadius: '14px',
+                          background: myPrediction === team
+                            ? 'linear-gradient(90deg, #E91E8C, #FF6B35)'
+                            : '#0A0A0F',
+                          color: '#fff', fontSize: '0.8rem', fontWeight: '600',
+                          border: myPrediction === team ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                        }}
+                      >
+                        {getTeamLogo(team)
+                          ? <img src={getTeamLogo(team)} alt={team}
+                              style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+                          : '🏏'}
+                        <span>{team.split(' ').slice(-1)[0]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          ))
-        )}
-      </div>
+
+            <div style={{
+              background: '#13131F', borderRadius: '24px', padding: '1.5rem',
+              border: '1px solid rgba(255,255,255,0.06)', marginTop: '0.75rem'
+            }}>
+              <h2 style={{ fontSize: '1rem', marginBottom: '1.2rem', fontWeight: '600' }}>🗳️ Everyone's Picks</h2>
+              {matchPreds.length === 0 ? (
+                <p style={{ color: '#555577', fontSize: '0.85rem' }}>No predictions yet...</p>
+              ) : (
+                matchPreds.map(p => (
+                  <div key={p.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '0.8rem 1rem', background: '#0A0A0F',
+                    borderRadius: '12px', marginBottom: '0.5rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #E91E8C, #FF6B35)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '0.8rem', fontWeight: '700'
+                      }}>
+                        {p.player_name[0]}
+                      </div>
+                      <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.player_name}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {locked ? (
+                        <>
+                          {getTeamLogo(p.predicted_team)
+                            ? <img src={getTeamLogo(p.predicted_team)} alt={p.predicted_team}
+                                style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+                            : '🏏'}
+                          <span style={{ fontSize: '0.8rem', color: '#8888AA' }}>
+                            {p.predicted_team.split(' ').slice(-1)[0]}
+                          </span>
+                          {match.winner && (
+                            <span style={{ fontSize: '1rem' }}>
+                              {p.predicted_team === match.winner ? '✅' : '❌'}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        p.player_email === user.email ? (
+                          <>
+                            {getTeamLogo(p.predicted_team)
+                              ? <img src={getTeamLogo(p.predicted_team)} alt={p.predicted_team}
+                                  style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+                              : '🏏'}
+                            <span style={{ fontSize: '0.8rem', color: '#E91E8C' }}>
+                              {p.predicted_team.split(' ').slice(-1)[0]} (you)
+                            </span>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: '0.8rem', color: '#555577' }}>🔒 Hidden</span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
