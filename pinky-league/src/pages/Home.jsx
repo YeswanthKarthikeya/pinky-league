@@ -67,6 +67,45 @@ export default function Home({ user }) {
     }
   }, [todayMatch, result])
 
+useEffect(() => {
+    checkPreviousMatchResult()
+  }, [])
+
+  const checkPreviousMatchResult = async () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toISOString().split('T')[0]
+    const { data: prevMatch } = await supabase
+      .from('matches')
+      .select('*')
+      .eq('match_date', yesterdayStr)
+      .single()
+    if (prevMatch && !prevMatch.winner && prevMatch.api_match_id) {
+      try {
+        const data = await fetchFromCricbuzz(`mcenter/v1/${prevMatch.api_match_id}/hscard`)
+        if (data?.ismatchcomplete && data?.status) {
+          const status = data.status
+          const winner = status.includes('won') ?
+            (status.includes('Lucknow') ? 'Lucknow Super Giants' :
+            status.includes('Rajasthan') ? 'Rajasthan Royals' :
+            status.includes('Mumbai') ? 'Mumbai Indians' :
+            status.includes('Chennai') ? 'Chennai Super Kings' :
+            status.includes('Kolkata') ? 'Kolkata Knight Riders' :
+            status.includes('Delhi') ? 'Delhi Capitals' :
+            status.includes('Punjab') ? 'Punjab Kings' :
+            status.includes('Sunrisers') ? 'Sunrisers Hyderabad' :
+            status.includes('Gujarat') ? 'Gujarat Titans' :
+            status.includes('Royal') ? 'Royal Challengers Bengaluru' : null) : null
+          if (winner) {
+            await saveResult(prevMatch, winner)
+          }
+        }
+      } catch (err) {
+        console.error('Previous match result fetch failed:', err)
+      }
+    }
+  }
+
   const fetchFromCricbuzz = async (endpoint) => {
     const res = await fetch(`https://cricbuzz-cricket.p.rapidapi.com/${endpoint}`, {
       headers: {
