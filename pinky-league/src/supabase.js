@@ -9,7 +9,7 @@ export const PLAYERS = [
   { name: 'Sunny', email: 'yeswanthkarthikeya11@gmail.com', team: 'Lucknow Super Giants' },
   { name: 'Karthik', email: 'saikarthikpokala@gmail.com', team: 'Mumbai Indians' },
   { name: 'Prashanth', email: 'prasanthaishu937@gmail.com', team: 'Royal Challengers Bengaluru' },
-  { name: 'Pinky', email: 'deviaishwarya1279@gmail.com', team: 'Sunrisers Hyderabad' },
+  { name: 'Pinky', email: 'deviaishwarya1279@gmail.com', team: 'Rajasthan Royals' },
   { name: 'Jeevan', email: 'jeevansaipokala235@gmail.com', team: 'Royal Challengers Bengaluru' },
 ]
 

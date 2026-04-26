@@ -34,6 +34,7 @@ const getTeamLogo = (team) => {
 export default function Leaderboard({ user }) {
   const [standings, setStandings] = useState([])
   const [history, setHistory] = useState([])
+const [allPredictions, setAllPredictions] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function Leaderboard({ user }) {
     if (matches && predictions) {
       calculateStandings(matches, predictions)
       setHistory(matches)
+      setAllPredictions(predictions)
     }
     setLoading(false)
   }
@@ -157,31 +159,50 @@ export default function Leaderboard({ user }) {
       {history.length > 0 && (
         <div>
           <h2 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem', color: '#8888AA' }}>📅 Match History</h2>
-          {history.map(match => (
-            <div key={match.id} style={{
-              background: '#13131F', borderRadius: '18px', padding: '1rem 1.2rem',
-              marginBottom: '0.6rem', border: '1px solid rgba(255,255,255,0.06)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <p style={{ fontSize: '0.85rem', fontWeight: '600' }}>
-                    {match.team1} vs {match.team2}
-                  </p>
-                  <p style={{ fontSize: '0.75rem', color: '#8888AA', marginTop: '0.2rem' }}>
-                    {formatDate(match.match_date)}
-                  </p>
+          {history.map(match => {
+            const matchPreds = allPredictions.filter(p => p.match_id === match.id)
+            return (
+              <div key={match.id} style={{
+                background: '#13131F', borderRadius: '18px', padding: '1rem 1.2rem',
+                marginBottom: '0.6rem', border: '1px solid rgba(255,255,255,0.06)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.8rem' }}>
+                  <div>
+                    <p style={{ fontSize: '0.85rem', fontWeight: '600' }}>
+                      {match.team1} vs {match.team2}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: '#8888AA', marginTop: '0.2rem' }}>
+                      {formatDate(match.match_date)}
+                    </p>
+                  </div>
+                  <div style={{ background: '#00E67622', borderRadius: '10px', padding: '0.4rem 0.8rem' }}>
+                    <p style={{ fontSize: '0.75rem', color: '#00E676', fontWeight: '600' }}>
+                      🏆 {match.winner?.split(' ').slice(-2).join(' ')}
+                    </p>
+                  </div>
                 </div>
-                <div style={{
-                  background: '#00E67622', borderRadius: '10px',
-                  padding: '0.4rem 0.8rem'
-                }}>
-                  <p style={{ fontSize: '0.75rem', color: '#00E676', fontWeight: '600' }}>
-                    🏆 {match.winner.split(' ').slice(-2).join(' ')}
-                  </p>
-                </div>
+
+                {matchPreds.length > 0 && (
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.8rem' }}>
+                    {matchPreds.map(pred => (
+                      <div key={pred.id} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        marginBottom: '0.4rem'
+                      }}>
+                        <span style={{ fontSize: '0.78rem', color: '#8888AA' }}>{pred.player_name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span style={{ fontSize: '0.78rem', color: '#fff' }}>
+                            {pred.predicted_team.split(' ').slice(-1)[0]}
+                          </span>
+                          <span>{pred.is_correct ? '✅' : '❌'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
