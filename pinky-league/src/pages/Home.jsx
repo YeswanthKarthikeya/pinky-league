@@ -172,7 +172,17 @@ export default function Home({ user }) {
         const data = await fetchFromCricbuzz(`mcenter/v1/${prevMatch.api_match_id}/hscard`)
         if (data?.ismatchcomplete) {
           const winner = getWinnerFromStatus(data.status)
-          if (winner) await saveResult(prevMatch, winner)
+          if (winner) {
+            await saveResult(prevMatch, winner)
+          }
+        } else {
+          const recentData = await fetchFromCricbuzz('matches/v1/recent')
+          const recentMatches = findIPLMatches(recentData)
+          const found = recentMatches.find(m => m.matchId?.toString() === prevMatch.api_match_id)
+          if (found && found.state === 'Complete') {
+            const winner = getWinnerFromStatus(found.status)
+            if (winner) await saveResult(prevMatch, winner)
+          }
         }
       } catch (err) {
         console.error('Previous match result fetch failed:', err)
