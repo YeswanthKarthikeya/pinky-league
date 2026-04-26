@@ -69,17 +69,12 @@ export default function Admin({ user }) {
 
   const sendReminder = async (match) => {
     try {
-      await fetch('https://onesignal.com/api/v1/notifications', {
+      await fetch('/api/send-notification', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Key ${ONESIGNAL_API_KEY}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          app_id: ONESIGNAL_APP_ID,
-          included_segments: ['Total Subscriptions'],
-          headings: { en: '🏏 The Pinky League' },
-          contents: { en: `${match.team1} vs ${match.team2} starts in 30 mins! Place your vote now! 🗳️` },
+          title: '🏏 The Pinky League',
+          message: `${match.team1} vs ${match.team2} starts in 30 mins! Place your vote now! 🗳️`
         })
       })
       setReminderSent(prev => ({ ...prev, [match.id]: true }))
