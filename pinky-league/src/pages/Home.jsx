@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase, getPlayerName, RAPIDAPI_KEY, RAPIDAPI_HOST, PLAYERS } from '../supabase'
+import { supabase, getPlayerName, RAPIDAPI_KEY, RAPIDAPI_HOST, PLAYERS, ONESIGNAL_APP_ID, ONESIGNAL_API_KEY } from '../supabase'
 
 const TEAM_LOGOS = {
   'chennai super kings': 'https://scores.iplt20.com/ipl/teamlogos/CSK.png',
@@ -141,7 +141,10 @@ export default function Home({ user }) {
           match_number: i + 1
         }
         const { data: saved } = await supabase.from('matches').insert(newMatch).select().single()
-        if (saved) savedMatches.push(saved)
+        if (saved) {
+          savedMatches.push(saved)
+          await scheduleMatchReminder(saved)
+        }
       }
 
       setTodayMatches(savedMatches)
@@ -264,6 +267,35 @@ export default function Home({ user }) {
       <p style={{ color: '#555577', fontSize: '0.85rem', marginTop: '0.5rem' }}>Check back tomorrow 🏏</p>
     </div>
   )
+
+  const scheduleMatchReminder = async (match) => {
+    try {
+      const [hours, minutes] = match.match_time.split(':')
+      const matchStart = new Date()
+      matchStart.setHours(parseInt(hours), parseInt(minutes), 0)
+      const reminderTime = new Date(matchStart.getTime() - 30 * 60 * 1000)
+      if (reminderTime <= new Date()) return
+
+      const sendAfter = reminderTime.toISOString()
+
+      await fetch('https://onesignal.com/api/v1/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Key ${ONESIGNAL_API_KEY}`
+        },
+        body: JSON.stringify({
+          app_id: ONESIGNAL_APP_ID,
+          included_segments: ['Total Subscriptions'],
+          headings: { en: '🏏 The Pinky League' },
+          contents: { en: `${match.team1} vs ${match.team2} starts in 30 mins! Place your vote now! 🗳️` },
+          send_after: sendAfter
+        })
+      })
+    } catch (err) {
+      console.error('Failed to schedule notification:', err)
+    }
+  }
 
   return (
     <div style={{ padding: '1.5rem', paddingBottom: '6rem' }}>
