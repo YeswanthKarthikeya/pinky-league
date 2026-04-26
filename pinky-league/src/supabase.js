@@ -6,11 +6,11 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
 export const PLAYERS = [
-  { name: 'Sunny', email: 'yeswanthkarthikeya11@gmail.com' },
-  { name: 'Karthik', email: 'saikarthikpokala@gmail.com' },
-  { name: 'Prasanth', email: 'prasanthaishu937@gmail.com' },
-  { name: 'Pinky', email: 'deviaishwarya1279@gmail.com' },
-  { name: 'Jeevan', email: 'jeevansaipokala235@gmail.com' },
+  { name: 'Sunny', email: 'yeswanthkarthikeya11@gmail.com', team: 'Lucknow Super Giants' },
+  { name: 'Karthik', email: 'saikarthikpokala@gmail.com', team: 'Mumbai Indians' },
+  { name: 'Prashanth', email: 'prasanthaishu937@gmail.com', team: 'Royal Challengers Bengaluru' },
+  { name: 'Pinky', email: 'deviaishwarya1279@gmail.com', team: 'Sunrisers Hyderabad' },
+  { name: 'Jeevan', email: 'jeevansaipokala235@gmail.com', team: 'Royal Challengers Bengaluru' },
 ]
 
 export const getPlayerName = (email) => {

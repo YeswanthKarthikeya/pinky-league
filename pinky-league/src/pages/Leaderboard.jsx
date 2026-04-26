@@ -1,6 +1,36 @@
 import { useState, useEffect } from 'react'
 import { supabase, PLAYERS } from '../supabase'
 
+const TEAM_LOGOS = {
+  'chennai super kings': 'https://scores.iplt20.com/ipl/teamlogos/CSK.png',
+  'mumbai indians': 'https://scores.iplt20.com/ipl/teamlogos/MI.png',
+  'royal challengers bengaluru': 'https://scores.iplt20.com/ipl/teamlogos/RCB.png',
+  'kolkata knight riders': 'https://scores.iplt20.com/ipl/teamlogos/KKR.png',
+  'delhi capitals': 'https://scores.iplt20.com/ipl/teamlogos/DC.png',
+  'punjab kings': 'https://scores.iplt20.com/ipl/teamlogos/PBKS.png',
+  'rajasthan royals': 'https://scores.iplt20.com/ipl/teamlogos/RR.png',
+  'sunrisers hyderabad': 'https://scores.iplt20.com/ipl/teamlogos/SRH.png',
+  'lucknow super giants': 'https://scores.iplt20.com/ipl/teamlogos/LSG.png',
+  'gujarat titans': 'https://scores.iplt20.com/ipl/teamlogos/GT.png',
+}
+
+const getTeamLogo = (team) => {
+  if (!team) return null
+  const lower = team.toLowerCase().trim()
+  if (TEAM_LOGOS[lower]) return TEAM_LOGOS[lower]
+  if (lower.includes('rajasthan')) return TEAM_LOGOS['rajasthan royals']
+  if (lower.includes('lucknow')) return TEAM_LOGOS['lucknow super giants']
+  if (lower.includes('chennai')) return TEAM_LOGOS['chennai super kings']
+  if (lower.includes('mumbai')) return TEAM_LOGOS['mumbai indians']
+  if (lower.includes('royal challengers')) return TEAM_LOGOS['royal challengers bengaluru']
+  if (lower.includes('kolkata')) return TEAM_LOGOS['kolkata knight riders']
+  if (lower.includes('delhi')) return TEAM_LOGOS['delhi capitals']
+  if (lower.includes('punjab')) return TEAM_LOGOS['punjab kings']
+  if (lower.includes('sunrisers')) return TEAM_LOGOS['sunrisers hyderabad']
+  if (lower.includes('gujarat')) return TEAM_LOGOS['gujarat titans']
+  return null
+}
+
 export default function Leaderboard({ user }) {
   const [standings, setStandings] = useState([])
   const [history, setHistory] = useState([])
@@ -31,7 +61,7 @@ export default function Leaderboard({ user }) {
   const calculateStandings = (matches, predictions) => {
     const scores = {}
     PLAYERS.forEach(p => {
-      scores[p.email] = { name: p.name, correct: 0, total: 0, email: p.email }
+      scores[p.email] = { name: p.name, correct: 0, total: 0, email: p.email, team: p.team }
     })
 
     matches.forEach(match => {
@@ -96,13 +126,16 @@ export default function Leaderboard({ user }) {
               {getMedalEmoji(index)}
             </div>
             <div style={{
-              width: '40px', height: '40px', borderRadius: '50%',
-              background: 'linear-gradient(135deg, #E91E8C, #FF6B35)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '1rem', fontWeight: '700', flexShrink: 0
-            }}>
-              {player.name[0]}
-            </div>
+                  width: '40px', height: '40px', borderRadius: '50%',
+                  background: '#0A0A0F',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, overflow: 'hidden'
+                }}>
+                  {getTeamLogo(player.team)
+                    ? <img src={getTeamLogo(player.team)} alt={player.team}
+                        style={{ width: '36px', height: '36px', objectFit: 'contain' }} />
+                    : <span style={{ fontSize: '1rem', fontWeight: '700' }}>{player.name[0]}</span>}
+                </div>
             <div style={{ flex: 1 }}>
               <p style={{ fontWeight: '600', fontSize: '0.95rem' }}>
                 {player.name} {player.email === user.email ? '(you)' : ''}

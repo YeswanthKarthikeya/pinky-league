@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase, getPlayerName, RAPIDAPI_KEY, RAPIDAPI_HOST } from '../supabase'
+import { supabase, getPlayerName, RAPIDAPI_KEY, RAPIDAPI_HOST, PLAYERS } from '../supabase'
 
 const TEAM_LOGOS = {
   'chennai super kings': 'https://scores.iplt20.com/ipl/teamlogos/CSK.png',
@@ -403,13 +403,19 @@ export default function Home({ user }) {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem' }}>
                       <div style={{
-                        width: '32px', height: '32px', borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #E91E8C, #FF6B35)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '0.8rem', fontWeight: '700'
-                      }}>
-                        {p.player_name[0]}
-                      </div>
+                  width: '32px', height: '32px', borderRadius: '50%',
+                  background: '#0A0A0F',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, overflow: 'hidden'
+                }}>
+                  {(() => {
+                    const player = PLAYERS.find(pl => pl.name === p.player_name)
+                    const logo = player ? getTeamLogo(player.team) : null
+                    return logo
+                      ? <img src={logo} alt={player.team} style={{ width: '28px', height: '28px', objectFit: 'contain' }} />
+                      : <span style={{ fontSize: '0.8rem', fontWeight: '700', color: '#fff' }}>{p.player_name[0]}</span>
+                  })()}
+                </div>
                       <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.player_name}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
