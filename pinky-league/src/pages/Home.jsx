@@ -222,25 +222,34 @@ export default function Home({ user }) {
     return now >= matchStart && now < matchEnd
   }
 
-  const handleVote = async (matchId, team) => {
-    const { data: existingInDB } = await supabase
-      .from('predictions')
-      .select('*')
-      .eq('match_id', matchId)
-      .eq('player_email', user.email)
-      .single()
+  const [votingMatchId, setVotingMatchId] = useState(null)
 
-    if (existingInDB) {
-      await supabase.from('predictions').update({ predicted_team: team }).eq('id', existingInDB.id)
-    } else {
-      await supabase.from('predictions').insert({
-        match_id: matchId,
-        player_email: user.email,
-        player_name: playerName,
-        predicted_team: team
-      })
+  const handleVote = async (matchId, team) => {
+    if (votingMatchId === matchId) return
+    setVotingMatchId(matchId)
+    try {
+      const { data: existingInDB } = await supabase
+        .from('predictions')
+        .select('*')
+        .eq('match_id', matchId)
+        .eq('player_email', user.email)
+        .single()
+
+      if (existingInDB) {
+        await supabase.from('predictions').update({ predicted_team: team }).eq('id', existingInDB.id)
+      } else {
+        await supabase.from('predictions').insert({
+          match_id: matchId,
+          player_email: user.email,
+          player_name: playerName,
+          predicted_team: team
+        })
+      }
+      await fetchAllPredictions(todayMatches.map(m => m.id))
+    } catch (err) {
+      console.error('Vote error:', err)
     }
-    await fetchAllPredictions(todayMatches.map(m => m.id))
+    setVotingMatchId(null)
   }
 
   const getMyPrediction = (matchId) => {
@@ -394,26 +403,28 @@ export default function Home({ user }) {
                   </p>
                   <div style={{ display: 'flex', gap: '0.75rem' }}>
                     {[match.team1, match.team2].map(team => (
-                      <button
-                        key={team}
-                        onClick={() => handleVote(match.id, team)}
-                        style={{
-                          flex: 1, padding: '0.9rem 0.5rem', borderRadius: '14px',
-                          background: myPrediction === team
-                            ? 'linear-gradient(90deg, #E91E8C, #FF6B35)'
-                            : '#0A0A0F',
-                          color: '#fff', fontSize: '0.8rem', fontWeight: '600',
-                          border: myPrediction === team ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
-                        }}
-                      >
-                        {getTeamLogo(team)
-                          ? <img src={getTeamLogo(team)} alt={team}
-                              style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
-                          : '🏏'}
-                        <span>{team.split(' ').slice(-1)[0]}</span>
-                      </button>
-                    ))}
+  <button
+    key={team}
+    onClick={() => handleVote(match.id, team)}
+    disabled={votingMatchId === match.id}
+    style={{
+      flex: 1, padding: '0.9rem 0.5rem', borderRadius: '14px',
+      background: myPrediction === team
+        ? 'linear-gradient(90deg, #E91E8C, #FF6B35)'
+        : '#0A0A0F',
+      color: '#fff', fontSize: '0.8rem', fontWeight: '600',
+      border: myPrediction === team ? 'none' : '1px solid rgba(255,255,255,0.1)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+      opacity: votingMatchId === match.id ? 0.5 : 1
+    }}
+  >
+    {getTeamLogo(team)
+      ? <img src={getTeamLogo(team)} alt={team}
+          style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
+      : '🏏'}
+    <span>{team.split(' ').slice(-1)[0]}</span>
+  </button>
+))}
                   </div>
                 </div>
               )}
