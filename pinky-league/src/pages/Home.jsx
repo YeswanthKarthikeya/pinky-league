@@ -220,9 +220,15 @@ export default function Home({ user }) {
   }
 
   const handleVote = async (matchId, team) => {
-    const existing = predictions.find(p => p.match_id === matchId && p.player_email === user.email)
-    if (existing) {
-      await supabase.from('predictions').update({ predicted_team: team }).eq('id', existing.id)
+    const { data: existingInDB } = await supabase
+      .from('predictions')
+      .select('*')
+      .eq('match_id', matchId)
+      .eq('player_email', user.email)
+      .single()
+
+    if (existingInDB) {
+      await supabase.from('predictions').update({ predicted_team: team }).eq('id', existingInDB.id)
     } else {
       await supabase.from('predictions').insert({
         match_id: matchId,
