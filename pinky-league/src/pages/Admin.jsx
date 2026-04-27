@@ -67,21 +67,6 @@ export default function Admin({ user }) {
     fetchTodayMatches()
   }
 
-  const sendReminder = async (match) => {
-    try {
-      await fetch('/api/send-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: '🏏 The Pinky League',
-          message: `${match.team1} vs ${match.team2} starts in 30 mins! Place your vote now! 🗳️`
-        })
-      })
-      setReminderSent(prev => ({ ...prev, [match.id]: true }))
-    } catch (err) {
-      alert('Failed to send reminder ❌')
-    }
-  }
 
   if (!isAdmin) return (
     <div style={{ padding: '2rem', textAlign: 'center' }}>
@@ -167,18 +152,6 @@ export default function Admin({ user }) {
               <p style={{ color: '#8888AA', fontSize: '0.8rem', marginTop: '0.5rem' }}>⏰ {match.match_time}</p>
             </div>
 
-            <button
-              onClick={() => sendReminder(match)}
-              disabled={reminderSent[match.id]}
-              style={{
-                width: '100%', padding: '1rem', borderRadius: '14px',
-                background: reminderSent[match.id] ? '#333' : 'linear-gradient(90deg, #6C63FF, #E91E8C)',
-                color: '#fff', fontSize: '1rem', fontWeight: '700',
-                marginBottom: '1rem'
-              }}
-            >
-              {reminderSent[match.id] ? '✅ Reminder Sent!' : '🔔 Send Reminder Now'}
-            </button>
 
             <h2 style={{ fontSize: '1rem', marginBottom: '1rem' }}>🏆 Enter Match Result</h2>
             {saved[match.id] && (

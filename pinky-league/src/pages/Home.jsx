@@ -277,34 +277,6 @@ export default function Home({ user }) {
     </div>
   )
 
-  const scheduleMatchReminder = async (match) => {
-    try {
-      const [hours, minutes] = match.match_time.split(':')
-      const matchStart = new Date()
-      matchStart.setHours(parseInt(hours), parseInt(minutes), 0)
-      const reminderTime = new Date(matchStart.getTime() - 30 * 60 * 1000)
-      if (reminderTime <= new Date()) return
-
-      const sendAfter = reminderTime.toISOString()
-
-      await fetch('https://onesignal.com/api/v1/notifications', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Key ${ONESIGNAL_API_KEY}`
-        },
-        body: JSON.stringify({
-          app_id: ONESIGNAL_APP_ID,
-          included_segments: ['Total Subscriptions'],
-          headings: { en: '🏏 The Pinky League' },
-          contents: { en: `${match.team1} vs ${match.team2} starts in 30 mins! Place your vote now! 🗳️` },
-          send_after: sendAfter
-        })
-      })
-    } catch (err) {
-      console.error('Failed to schedule notification:', err)
-    }
-  }
 
   return (
     <div style={{ padding: '1.5rem', paddingBottom: '6rem' }}>

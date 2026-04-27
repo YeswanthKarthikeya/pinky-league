@@ -21,5 +21,3 @@ export const getPlayerName = (email) => {
 export const RAPIDAPI_KEY = 'cec19665d6mshe59c08f80698090p19bd68jsnacf264b7f245'
 export const RAPIDAPI_HOST = 'cricbuzz-cricket.p.rapidapi.com'
 
-export const ONESIGNAL_APP_ID = '41ccdc07-903a-442a-a979-766cd8061e75'
-export const ONESIGNAL_API_KEY = 'os_v2_app_ihgnyb4qhjccvklzozwnqbq6oufxcppxpyaudmvn4vywsfynrdialvirrihfyphvkjkqkw46e5u5dwo2ng4ds56btpdtdecsbo4fcra'
