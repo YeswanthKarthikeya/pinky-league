@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase, getPlayerName, RAPIDAPI_KEY, RAPIDAPI_HOST, PLAYERS, ONESIGNAL_APP_ID, ONESIGNAL_API_KEY } from '../supabase'
+import { supabase, getPlayerName, RAPIDAPI_KEY, RAPIDAPI_HOST, PLAYERS } from '../supabase'
 
 const TEAM_LOGOS = {
   'chennai super kings': 'https://scores.iplt20.com/ipl/teamlogos/CSK.png',
