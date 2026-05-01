@@ -1,0 +1,23 @@
+name: Match Reminder
+
+on:
+  schedule:
+    - cron: '0 13 * * *'  # 7:00 PM IST (13:00 UTC)
+    - cron: '30 9 * * *'  # 3:00 PM IST (09:30 UTC) for afternoon matches
+  workflow_dispatch:
+
+jobs:
+  send-notification:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Match Reminder
+        run: |
+          curl -X POST https://onesignal.com/api/v1/notifications \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Key os_v2_app_ihgnyb4qhjccvklzozwnqbq6oufxcppxpyaudmvn4vywsfynrdialvirrihfyphvkjkqkw46e5u5dwo2ng4ds56btpdtdecsbo4fcra" \
+            -d '{
+              "app_id": "41ccdc07-903a-442a-a979-766cd8061e75",
+              "included_segments": ["Total Subscriptions"],
+              "headings": {"en": "🏏 The Pinky League"},
+              "contents": {"en": "Match starts in 30 mins! Place your vote now! 🗳️"}
+            }'
