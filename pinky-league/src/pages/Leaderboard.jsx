@@ -66,16 +66,15 @@ const [allPredictions, setAllPredictions] = useState([])
       scores[p.email] = { name: p.name, correct: 0, total: 0, email: p.email, team: p.team }
     })
 
-    matches.forEach(match => {
-      const matchPreds = predictions.filter(p => p.match_id === match.id)
-      matchPreds.forEach(pred => {
-        if (scores[pred.player_email]) {
-          scores[pred.player_email].total++
-          if (pred.predicted_team === match.winner) {
-            scores[pred.player_email].correct++
-          }
+    const completedMatchIds = new Set(matches.filter(m => m.winner).map(m => m.id))
+
+    predictions.forEach(pred => {
+      if (scores[pred.player_email] && completedMatchIds.has(pred.match_id)) {
+        scores[pred.player_email].total++
+        if (pred.is_correct) {
+          scores[pred.player_email].correct++
         }
-      })
+      }
     })
 
     const sorted = Object.values(scores).sort((a, b) => b.correct - a.correct)

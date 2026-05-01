@@ -205,12 +205,15 @@ export default function Home({ user }) {
     }
   }
 
-  const isMatchLocked = (matchTime) => {
+  const isMatchLocked = (matchTime, winner) => {
+    if (winner) return true
     const now = new Date()
+    const istOffset = 5.5 * 60 * 60 * 1000
+    const istNow = new Date(now.getTime() + istOffset)
     const [hours, minutes] = matchTime.split(':')
-    const matchDate = new Date()
-    matchDate.setHours(parseInt(hours), parseInt(minutes), 0)
-    return now >= matchDate
+    const matchDate = new Date(istNow)
+    matchDate.setUTCHours(parseInt(hours), parseInt(minutes), 0)
+    return istNow >= matchDate
   }
 
   const isMatchLive = (matchTime) => {
@@ -434,37 +437,37 @@ export default function Home({ user }) {
                       <span style={{ fontSize: '0.9rem', fontWeight: '500' }}>{p.player_name}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      {locked ? (
-                        <>
-                          {getTeamLogo(p.predicted_team)
-                            ? <img src={getTeamLogo(p.predicted_team)} alt={p.predicted_team}
-                                style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
-                            : '🏏'}
-                          <span style={{ fontSize: '0.8rem', color: '#8888AA' }}>
-                            {p.predicted_team.split(' ').slice(-1)[0]}
-                          </span>
-                          {match.winner && (
-                            <span style={{ fontSize: '1rem' }}>
-                              {p.predicted_team === match.winner ? '✅' : '❌'}
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        p.player_email === user.email ? (
-                          <>
-                            {getTeamLogo(p.predicted_team)
-                              ? <img src={getTeamLogo(p.predicted_team)} alt={p.predicted_team}
-                                  style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
-                              : '🏏'}
-                            <span style={{ fontSize: '0.8rem', color: '#E91E8C' }}>
-                              {p.predicted_team.split(' ').slice(-1)[0]} (you)
-                            </span>
-                          </>
-                        ) : (
-                          <span style={{ fontSize: '0.8rem', color: '#555577' }}>🔒 Hidden</span>
-                        )
-                      )}
-                    </div>
+  {locked || match.winner ? (
+    <>
+      {getTeamLogo(p.predicted_team)
+        ? <img src={getTeamLogo(p.predicted_team)} alt={p.predicted_team}
+            style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+        : <span>🏏</span>}
+      <span style={{ fontSize: '0.8rem', color: '#8888AA' }}>
+        {p.predicted_team.split(' ').slice(-1)[0]}
+      </span>
+      {match.winner && (
+        <span style={{ fontSize: '1rem' }}>
+          {p.predicted_team === match.winner ? '✅' : '❌'}
+        </span>
+      )}
+    </>
+  ) : (
+    p.player_email === user.email ? (
+      <>
+        {getTeamLogo(p.predicted_team)
+          ? <img src={getTeamLogo(p.predicted_team)} alt={p.predicted_team}
+              style={{ width: '24px', height: '24px', objectFit: 'contain' }} />
+          : <span>🏏</span>}
+        <span style={{ fontSize: '0.8rem', color: '#E91E8C' }}>
+          {p.predicted_team.split(' ').slice(-1)[0]} (you)
+        </span>
+      </>
+    ) : (
+      <span style={{ fontSize: '0.8rem', color: '#555577' }}>🔒 Hidden</span>
+    )
+  )}
+</div>
                   </div>
                 ))
               )}
