@@ -14,7 +14,7 @@ jobs:
         run: |
           curl -X POST https://onesignal.com/api/v1/notifications \
             -H "Content-Type: application/json" \
-            -H "Authorization: Key os_v2_app_ihgnyb4qhjccvklzozwnqbq6oufxcppxpyaudmvn4vywsfynrdialvirrihfyphvkjkqkw46e5u5dwo2ng4ds56btpdtdecsbo4fcra" \
+            -H "Authorization: Basic os_v2_app_ihgnyb4qhjccvklzozwnqbq6oufxcppxpyaudmvn4vywsfynrdialvirrihfyphvkjkqkw46e5u5dwo2ng4ds56btpdtdecsbo4fcra" \
             -d '{
               "app_id": "41ccdc07-903a-442a-a979-766cd8061e75",
               "included_segments": ["Total Subscriptions"],
