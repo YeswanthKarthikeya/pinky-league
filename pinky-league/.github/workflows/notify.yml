@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Send Match Reminder
         run: |
-          curl -X POST https://onesignal.com/api/v1/notifications \
+          curl -X POST https://api.onesignal.com/notifications \
             -H "Content-Type: application/json" \
             -H "Authorization: Key os_v2_app_ihgnyb4qhjccvklzozwnqbq6owpido7dgg2use4eyh5xkby6xbkbanicxanl5hfb5jps25ys4wdqgvvz2i7y664kddxdzigyfnywlxa" \
             -d '{
