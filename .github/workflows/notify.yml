@@ -17,6 +17,7 @@ jobs:
             -H "Authorization: Key os_v2_app_ihgnyb4qhjccvklzozwnqbq6owpido7dgg2use4eyh5xkby6xbkbanicxanl5hfb5jps25ys4wdqgvvz2i7y664kddxdzigyfnywlxa" \
             -d '{
               "app_id": "41ccdc07-903a-442a-a979-766cd8061e75",
+              "target_channel": "push",
               "included_segments": ["Total Subscriptions"],
               "headings": {"en": "🏏 The Pinky League"},
               "contents": {"en": "Match starts in 30 mins! Place your vote now! 🗳️"}
